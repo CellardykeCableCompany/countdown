@@ -11,11 +11,14 @@
 :root{
   --bg:#f5c247;
   --tile:#ffffff;
+  --tile-top:#ffffff;
+  --tile-bot:#f3f3f1;
   --ink:#343434;
   --w:clamp(46px,11vw,82px);
   --h:calc(var(--w) * 1.42);
   --fs:calc(var(--h) * 0.72);
   --r:clamp(6px,1.6vw,10px);
+  --t:0.34s;               /* half-flip duration */
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
@@ -39,47 +42,54 @@ body{
 /* one flip digit */
 .tile{
   position:relative;width:var(--w);height:var(--h);
-  perspective:calc(var(--h) * 2.2);
+  perspective:calc(var(--h) * 3.4);
   filter:drop-shadow(0 5px 9px rgba(120,80,0,.22));
 }
 .half,.flap{
   position:absolute;left:0;width:100%;height:50%;overflow:hidden;
-  background:var(--tile);
 }
-.half .num,.flap .num{
+/* the number lives full-height inside each half so the two halves join seamlessly */
+.num{
   position:absolute;left:0;width:100%;text-align:center;
   height:var(--h);line-height:var(--h);font-size:var(--fs);
   color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums;
 }
-.half.top{top:0;border-radius:var(--r) var(--r) 0 0;box-shadow:inset 0 -1px 0 rgba(0,0,0,.06)}
-.half.bot{bottom:0;border-radius:0 0 var(--r) var(--r)}
-.half.top .num{top:0}
-.half.bot .num{top:-100%}
+.half.top,.flap.fold{top:0;border-radius:var(--r) var(--r) 0 0;background:var(--tile-top)}
+.half.bot,.flap.unfold{bottom:0;border-radius:0 0 var(--r) var(--r);background:var(--tile-bot)}
+.half.top .num,.flap.fold .num{top:0}
+.half.bot .num,.flap.unfold .num{top:-100%}
 
-.flap{z-index:2;backface-visibility:hidden}
-.flap.fold{top:0;transform-origin:50% 100%;border-radius:var(--r) var(--r) 0 0;transform:rotateX(0deg)}
-.flap.fold .num{top:0}
-.flap.unfold{top:50%;transform-origin:50% 0%;border-radius:0 0 var(--r) var(--r);transform:rotateX(90deg)}
-.flap.unfold .num{top:-100%}
-.flap.fold.run{animation:fold .3s ease-in forwards}
-.flap.unfold.run{animation:unfold .3s ease-out .3s forwards}
+/* shading overlay that sells the 3-D fold */
+.shade{position:absolute;inset:0;opacity:0;pointer-events:none;border-radius:inherit}
+.flap.fold .shade{background:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.45) 100%)}
+.flap.unfold .shade{background:linear-gradient(0deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.5) 100%)}
+
+.flap{z-index:2;backface-visibility:hidden;transform-style:preserve-3d}
+.flap.fold{transform-origin:50% 100%;transform:rotateX(0deg)}
+.flap.unfold{transform-origin:50% 0%;transform:rotateX(90deg)}
+.flap.fold.run{animation:fold var(--t) cubic-bezier(.36,0,.66,-0.05) forwards}
+.flap.unfold.run{animation:unfold var(--t) cubic-bezier(.34,1.05,.64,1) var(--t) forwards}
+.flap.fold.run .shade{animation:foldShade var(--t) ease-in forwards}
+.flap.unfold.run .shade{animation:unfoldShade var(--t) ease-out var(--t) forwards}
 @keyframes fold{from{transform:rotateX(0deg)}to{transform:rotateX(-90deg)}}
 @keyframes unfold{from{transform:rotateX(90deg)}to{transform:rotateX(0deg)}}
+@keyframes foldShade{from{opacity:0}to{opacity:1}}
+@keyframes unfoldShade{from{opacity:1}to{opacity:0}}
 
-/* centre seam bar + hinge pins */
+/* centre seam + hinge pins */
 .tile::after{
   content:"";position:absolute;left:0;right:0;top:50%;height:2px;
-  transform:translateY(-1px);background:rgba(0,0,0,.16);z-index:3;border-radius:2px;
+  transform:translateY(-1px);background:rgba(0,0,0,.16);z-index:5;border-radius:2px;
 }
 .pin{position:absolute;top:50%;width:6px;height:11px;background:#3a3a3a;
-  transform:translateY(-50%);z-index:4;border-radius:2px}
+  transform:translateY(-50%);z-index:6;border-radius:2px}
 .pin.l{left:-3px}
 .pin.r{right:-3px}
 
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 @media (prefers-reduced-motion:reduce){
-  .flap{display:none}
+  :root{--t:0.16s}
 }
 </style>
 </head>
@@ -99,8 +109,8 @@ body{
     el.innerHTML=
       '<div class="half top"><span class="num">0</span></div>'+
       '<div class="half bot"><span class="num">0</span></div>'+
-      '<div class="flap fold"><span class="num">0</span></div>'+
-      '<div class="flap unfold"><span class="num">0</span></div>'+
+      '<div class="flap fold"><span class="num">0</span><div class="shade"></div></div>'+
+      '<div class="flap unfold"><span class="num">0</span><div class="shade"></div></div>'+
       '<i class="pin l"></i><i class="pin r"></i>';
     this.el=el;
     this.topN=el.querySelector('.top .num');
@@ -113,7 +123,7 @@ body{
     v=String(v);
     if(v===this.cur) return;
     var old=this.cur; this.cur=v;
-    if(reduce || old===null){
+    if(old===null){
       this.topN.textContent=v; this.botN.textContent=v;
       this.foldN.textContent=v; this.unfoldN.textContent=v;
       return;
