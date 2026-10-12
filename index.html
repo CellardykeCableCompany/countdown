@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Countdown</title>
+<title>Clock</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Arimo:wght@700&display=swap" rel="stylesheet">
@@ -14,7 +14,7 @@
   --tile-top:#ffffff;
   --tile-bot:#f3f3f1;
   --ink:#343434;
-  --w:clamp(46px,11vw,82px);
+  --w:clamp(34px,12.5vw,100px);
   --h:calc(var(--w) * 1.42);
   --fs:calc(var(--h) * 0.72);
   --r:clamp(6px,1.6vw,10px);
@@ -99,9 +99,6 @@ body{
 
 <script>
 (function(){
-  // 09:00 UK time on 10 November 2026. November is GMT (UTC+0), so 09:00Z.
-  var target = Date.UTC(2026,10,10,9,0,0);
-  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches;
 
   function Digit(){
     var el=document.createElement('div');
@@ -142,7 +139,7 @@ body{
     this.unfold.addEventListener('animationend',done);
   };
 
-  var UNITS=[['Days',2],['Hours',2],['Minutes',2],['Seconds',2]];
+  var UNITS=[['Hours',2],['Minutes',2],['Seconds',2]];
   var board=document.getElementById('board');
   var digits={};
   UNITS.forEach(function(u){
@@ -162,18 +159,19 @@ body{
   }
 
   var sr=document.getElementById('sr');
+  // 24-hour clock in the visitor's own local time
   function tick(){
-    var diff=target-Date.now();
-    if(diff<0) diff=0;
-    var s=Math.floor(diff/1000);
-    var days=Math.floor(s/86400); s-=days*86400;
-    var hrs=Math.floor(s/3600); s-=hrs*3600;
-    var mins=Math.floor(s/60); var secs=s-mins*60;
-    show('days',days); show('hours',hrs); show('minutes',mins); show('seconds',secs);
-    sr.textContent=days+' days, '+hrs+' hours, '+mins+' minutes, '+secs+' seconds remaining.';
+    var now=new Date();
+    var hrs=now.getHours(), mins=now.getMinutes(), secs=now.getSeconds();
+    show('hours',hrs); show('minutes',mins); show('seconds',secs);
+    sr.textContent='The time is '+p2(hrs)+':'+p2(mins)+'.';
   }
-  tick();
-  setInterval(tick,1000);
+  // re-sync to the top of each second so the flip lands on the real tick
+  function loop(){
+    tick();
+    setTimeout(loop,1000-(Date.now()%1000)+15);
+  }
+  loop();
 })();
 </script>
 </body>
